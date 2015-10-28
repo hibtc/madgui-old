@@ -21,6 +21,7 @@ class TwissWidget(ParamTable):
     """
 
     Title = "Set TWISS values"
+    data_key = 'twiss'
 
     # TODO:
     # - exclude more parameters (for most of these parameters, I actually

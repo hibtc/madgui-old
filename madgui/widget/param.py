@@ -101,6 +101,8 @@ class ParamTable(Widget):
     :ivar wx.GridBagSizer _grid: sizer that contains all parameters
     """
 
+    data_key = ''
+
     def __init__(self, window, utool, **kw):
         """Initialize data."""
         self.utool = utool
@@ -159,6 +161,8 @@ class ParamTable(Widget):
             # Since JSON is a subset of YAML there is no need to invoke a
             # different parser (unless we want validate the file):
             raw_data = yaml.safe_load(f)
+        if self.data_key:
+            raw_data = raw_data[self.data_key]
         data = self.utool.dict_add_unit(raw_data)
         self.SetData(data)
 
@@ -171,6 +175,8 @@ class ParamTable(Widget):
             ShowModal(dlg)
         data = self.GetData()
         raw_data = self.utool.dict_strip_unit(data)
+        if self.data_key:
+            raw_data = {data_key: raw_data}
         file_path = path_with_ext(dlg, wildcards)
         with open(file_path, 'wt') as f:
             yaml.safe_dump(raw_data, f, default_flow_style=False)

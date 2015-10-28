@@ -17,6 +17,7 @@ __all__ = [
 class BeamWidget(ParamTable):
 
     Title = "Beam properties"
+    data_key = 'beam'
 
     params = [
         String(particle="positron"),
