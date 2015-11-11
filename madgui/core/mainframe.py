@@ -189,14 +189,14 @@ class MainFrame(MDIParentFrame):
         segment = self.GetActiveFigurePanel().view.segment
         utool = self.madx_units
         with Dialog(self) as dialog:
-            widget = TwissWidget(dialog, utool=utool)
+            widget = TwissWidget(dialog, session=self.session)
             segment.twiss_args = widget.Query(segment.twiss_args)
 
     @Cancellable
     def _SetBeam(self, event=None):
         segment = self.GetActiveFigurePanel().view.segment
         with Dialog(self) as dialog:
-            widget = BeamWidget(dialog, utool=self.madx_units)
+            widget = BeamWidget(dialog, session=self.session)
             segment.beam = widget.Query(segment.beam)
 
     def _ShowIndicators(self, event):

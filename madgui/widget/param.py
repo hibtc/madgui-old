@@ -103,9 +103,10 @@ class ParamTable(Widget):
 
     data_key = ''
 
-    def __init__(self, window, utool, **kw):
+    def __init__(self, window, session, **kw):
         """Initialize data."""
-        self.utool = utool
+        self.session = session
+        self.utool = session.utool
         self._params = OrderedDict(
             (param, group)
             for group in self.params
@@ -156,6 +157,7 @@ class ParamTable(Widget):
                      ("JSON file", "*.json")]
         dlg = OpenDialog(self.TopLevelWindow, "Import values", wildcards)
         with dlg:
+            dlg.Directory = self.session.repo._path
             ShowModal(dlg)
         with open(dlg.GetPath(), 'rt') as f:
             # Since JSON is a subset of YAML there is no need to invoke a

@@ -37,8 +37,8 @@ class ModelWidget(Widget):
     def CreateControls(self, window):
         sizer = wx.BoxSizer(wx.VERTICAL)
         w_sequence = SequenceRangeWidget(window, manage=False)
-        w_beam = BeamWidget(window, manage=False, utool=self.session.utool)
-        w_twiss = TwissWidget(window, manage=False, utool=self.session.utool)
+        w_beam = BeamWidget(window, manage=False, session=self.session)
+        w_twiss = TwissWidget(window, manage=False, session=self.session)
         l_sequence = wx.StaticText(window, label="Select sequence and range")
         l_beam = wx.StaticText(window, label="Set beam properties")
         l_twiss = wx.StaticText(window, label="Set TWISS initial conditions")
