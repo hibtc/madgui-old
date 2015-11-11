@@ -153,6 +153,8 @@ class Session(object):
         cls._load_params(data, utool, repo, 'twiss')
         session = cls(utool, repo)
         session.data = data
+        for k, v in data.get('globals', {}):
+            madx.globals[k] = v
         for f in data.get('init-files', []):
             session.call(f)
         return session
