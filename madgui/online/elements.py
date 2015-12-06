@@ -78,6 +78,10 @@ def get_element_class(element):
         # TODO: handle mixed dip/quadp coefficients?
         # TODO: handle mixed knl/ksl coefficients?
         # TODO: handle higher order multipoles
+    if el_type == 'hkicker':
+        return HKicker
+    if el_type == 'vkicker':
+        return VKicker
     raise api.UnknownElement
 
 
@@ -175,6 +179,15 @@ class BaseDipole(BaseMagnet):
 
     def _dvm_backend(self):
         return self._plugin.get_dipole(self._segment, self.elements, self.skew)
+
+
+class HKicker(BaseDipole):
+    skew = False
+    mad_cls = mad_backend.HKicker
+
+class VKicker(BaseDipole):
+    skew = True
+    mad_cls = mad_backend.VKicker
 
 
 class Dipole(BaseDipole):

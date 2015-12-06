@@ -218,3 +218,24 @@ class MultipoleSQP(api.ElementBackendConverter):
 
 class Solenoid(api.NoConversion):
     standard_keys = backend_keys = ['ks']
+
+
+# Kicker
+
+class KickerBase(api.ElementBackendConverter):
+    standard_keys = ['angle']
+    backend_keys = ['kick']
+
+    def to_standard(self, values):
+        return {'angle': values['kick']}
+
+    def to_backend(self, values):
+        return {'kick': values['angle']}
+
+
+class HKicker(KickerBase):
+    pass
+
+class VKicker(KickerBase):
+    pass
+
