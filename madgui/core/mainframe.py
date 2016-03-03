@@ -148,7 +148,7 @@ class MainFrame(MDIParentFrame):
     def _LoadFile(self, event=None):
         self._ConfirmResetSession()
         wildcards = [("Model files", "*.cpymad.yml"),
-                     ("MAD-X files", "*.madx", "*.str", "*.seq"),
+                     ("MAD-X files", "*.madx", "*.str", "*.seq", "*.seqx"),
                      ("All files", "*")]
         with OpenDialog(self, "Open model", wildcards) as dlg:
             dlg.Directory = self.app.conf.get('model_path', '.')
@@ -279,6 +279,10 @@ class MainFrame(MDIParentFrame):
                          self._ShowIndicators,
                          self._UpdateShowIndicators,
                          wx.ITEM_CHECK),
+                Separator,
+                MenuItem('&Globals',
+                         'Edit values of global variables in MAD-X',
+                         self._EditGlobals),
             ]),
             Menu('&Help', [
                 MenuItem('&About',
@@ -403,6 +407,12 @@ class MainFrame(MDIParentFrame):
         self._basicConfig(logging.INFO,
                           '%(asctime)s %(levelname)s %(name)s: %(message)s',
                           '%H:%M:%S')
+
+    def _EditGlobals(self, event=None):
+        """Show edit dialog to set globals in MAD-X."""
+        with Dialog(self) as dialog:
+            widget = ModelWidget(dialog, session)
+            data = widget.Query(session.data)
 
     def _basicConfig(self, level, fmt, datefmt=None):
         """Configure logging."""
