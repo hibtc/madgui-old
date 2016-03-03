@@ -8,6 +8,7 @@ from __future__ import absolute_import
 
 # standard library
 from collections import namedtuple
+from functools import reduce
 import os
 import subprocess
 
@@ -28,6 +29,10 @@ __all__ = [
     'Session',
     'Segment',
 ]
+
+
+def kronecker(i, j):
+    return 1 if i == j else 0
 
 
 class Session(object):
@@ -454,14 +459,28 @@ class Segment(object):
         """
         info = self.get_element_info
         madx = self.madx
+        beg = info(beg_elem)
+        end = info(end_elem)
         madx.command.select(flag='sectormap', clear=True)
-        madx.command.select(flag='sectormap', range=info(beg_elem).name)
-        madx.command.select(flag='sectormap', range=info(end_elem).name)
+        madx.command.select(flag='sectormap', range=(beg.name, end.name))
         with temp_filename() as sectorfile:
             self.raw_twiss(sectormap=True, sectorfile=sectorfile)
         sectortable = madx.get_table('sectortable')
-        def sectormap(i, j):
-            return sectortable['r{}{}'.format(i, j)][-1]
-        return np.array([[sectormap(i+1, j+1)
-                          for j in range(6)]
-                         for i in range(6)])
+        def sectormap(i, j, elem):
+            el = self.elements[elem]
+            ty = el['type']
+            if ty == 'hkicker':
+                return (kronecker(i, j) +
+                        kronecker(i, 2) * kronecker(j, 7) * float(el['kick']))
+            elif ty == 'vkicker':
+                return (kronecker(i, j) +
+                        kronecker(i, 4) * kronecker(j, 7) * float(el['kick']))
+            else:
+                if i == 7 or j == 7:
+                    return kronecker(i, j)
+                return sectortable['r{}{}'.format(i, j)][elem]
+        maps = np.array([[[sectormap(i+1, j+1, elem)
+                           for j in range(7)]
+                          for i in range(7)]
+                         for elem in range(beg.index, end.index+1)])
+        return reduce(np.dot, reversed(maps), np.eye(7))

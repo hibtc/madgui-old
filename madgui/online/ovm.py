@@ -29,6 +29,7 @@ __all__ = [
 
 def _is_steerer(el):
     return el['type'] == 'sbend' \
+        or el['type'].endswith('kicker') \
         or el['type'] == 'multipole' and (
             el['knl'][0] != 0 or
             el['ksl'][0] != 0)
