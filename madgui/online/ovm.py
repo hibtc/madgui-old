@@ -96,7 +96,8 @@ class OpticVariationMethod(object):
 
     def compute_steerer_corrections(self, init_pos):
 
-        steerer_names = self.hst + self.vst
+        # steerer_names = self.hst + self.vst
+        steerer_names = self.vst
         steerer_elems = [self.control.get_element(v) for v in steerer_names]
 
         # backup  MAD-X values
@@ -112,8 +113,8 @@ class OpticVariationMethod(object):
 
         # match final conditions
         constraints = [
-            {'range': self.mon, 'x': 0},
-            {'range': self.mon, 'px': 0},
+            # {'range': self.mon, 'x': 0},
+            # {'range': self.mon, 'px': 0},
             {'range': self.mon, 'y': 0},
             {'range': self.mon, 'py': 0},
             # TODO: also set betx, bety unchanged?
