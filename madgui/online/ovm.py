@@ -156,20 +156,39 @@ class OpticVariationMethod(object):
         for the 4D phase space vector x and returns the result as a dict with
         keys 'x', 'px', 'y, 'py'.
         """
-        zero = numpy.zeros((3,5))
-        eye = numpy.eye(5)
-        s1 = (slice(None), (0,1,2,3,6))
-        s2 = ((0,2,6), slice(None))
-        M = numpy.bmat([[A[s1][s2], zero],
-                        [zero, B[s1][s2]],
-                        [eye,  -eye]])
-        m = (self._strip_sd_pair(a) + (1,) +
-             self._strip_sd_pair(b) + (1,) +
-             (0, 0, 0, 0, 0))
+
+        s1 = ((0,1,2,3,6), slice(None))
+        s2 = (slice(None), (0,1,2,3,6))
+        A = A[s1][s2]
+        B = B[s1][s2]
+
+        AR = numpy.array([
+            [0, 0, 0, 0, 0],
+            [-1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, -1, 0, 0, 0],
+            [0, 0, 0, 0, 1],
+        ])
+
+        BL = numpy.array([
+            [0, 0, 0, 0, 0],
+            [0, 0, -1, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, -1, 0],
+            [0, 0, 0, 0, 1],
+        ])
+
+        M = numpy.bmat([[A, AR],
+                        [BL, B]])
+
+        a = self._strip_sd_pair(a)
+        b = self._strip_sd_pair(b)
+
+        m = numpy.array([a[0], 0, a[1], 0, 1, b[0], 0, b[1], 0, 1])
+
         x = numpy.linalg.lstsq(M, m)[0]
         return self.utool.dict_add_unit({'x': x[0], 'px': x[1],
-                                         'y': x[3], 'py': x[4]})
-
+                                         'y': x[2], 'py': x[3]})
 
 
 class OpticVariationWizard(wizard.Wizard):
