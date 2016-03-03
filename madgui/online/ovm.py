@@ -102,6 +102,8 @@ class OpticVariationMethod(object):
         # backup  MAD-X values
         steerer_values = [el.mad_backend.get() for el in steerer_elems]
 
+        match_names = [list(el.mad_backend._lval.values())[0] for el in steerer_elems]
+
         # compute initial condition
         init_twiss = {}
         init_twiss.update(self.segment.twiss_args)
@@ -118,7 +120,7 @@ class OpticVariationMethod(object):
         ]
         self.segment.madx.match(
             sequence=self.segment.sequence.name,
-            vary=steerer_names,
+            vary=match_names,
             constraints=constraints,
             twiss_init=self.utool.dict_strip_unit(init_twiss))
         self.segment.hook.update()
