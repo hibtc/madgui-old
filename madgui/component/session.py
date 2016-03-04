@@ -440,7 +440,7 @@ class Segment(object):
         self.tw['posy'] = self.tw['y']
         self.hook.update()
 
-    def raw_twiss(self, **kwargs):
+    def _get_twiss_args(self, **kwargs):
         twiss_init = self.utool.dict_strip_unit(self.twiss_args)
         twiss_args = {
             'sequence': self.sequence.name,
@@ -449,7 +449,10 @@ class Segment(object):
             'twiss_init': twiss_init,
         }
         twiss_args.update(kwargs)
-        return self.madx.twiss(**twiss_args)
+        return twiss_args
+
+    def raw_twiss(self, **kwargs):
+        return self.madx.twiss(**self._get_twiss_args(**kwargs))
 
     def get_transfer_map(self, beg_elem, end_elem):
         """
@@ -458,29 +461,7 @@ class Segment(object):
         This requires a full twiss call, so don't do it too often.
         """
         info = self.get_element_info
-        madx = self.madx
-        beg = info(beg_elem)
-        end = info(end_elem)
-        madx.command.select(flag='sectormap', clear=True)
-        madx.command.select(flag='sectormap', range=(beg.name, end.name))
-        with temp_filename() as sectorfile:
-            self.raw_twiss(sectormap=True, sectorfile=sectorfile)
-        sectortable = madx.get_table('sectortable')
-        def sectormap(i, j, elem):
-            el = self.elements[elem]
-            ty = el['type']
-            if ty == 'hkicker':
-                return (kronecker(i, j) +
-                        kronecker(i, 2) * kronecker(j, 7) * float(el['kick']))
-            elif ty == 'vkicker':
-                return (kronecker(i, j) +
-                        kronecker(i, 4) * kronecker(j, 7) * float(el['kick']))
-            else:
-                if i == 7 or j == 7:
-                    return kronecker(i, j)
-                return sectortable['r{}{}'.format(i, j)][elem]
-        maps = np.array([[[sectormap(i+1, j+1, elem)
-                           for j in range(7)]
-                          for i in range(7)]
-                         for elem in range(beg.index, end.index+1)])
-        return reduce(np.dot, reversed(maps), np.eye(7))
+        twiss_args = self._get_twiss_args()
+        twiss_args['range_'] = (info(beg_elem).name, info(end_elem).name)
+        twiss_args['tw_range'] = twiss_args.pop('range')
+        return self.madx.get_transfer_map_7d(**twiss_args)
