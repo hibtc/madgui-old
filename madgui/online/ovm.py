@@ -6,7 +6,7 @@ alignment.
 
 from __future__ import absolute_import
 
-import numpy
+import numpy as np
 
 from madgui.core import wx
 from madgui.util.unit import format_quantity, strip_unit, get_raw_label
@@ -90,9 +90,13 @@ class OpticVariationMethod(object):
             monitor.dvm_backend.get())
 
     def compute_initial_position(self):
-        return self._compute_initial_position(
-            self.sectormap[0], self.measurement[0],
-            self.sectormap[1], self.measurement[1])
+        x, px, y, py, one = _compute_initial_position(
+            self.sectormap[0], self._strip_sd_pair(self.measurement[0]),
+            self.sectormap[1], self._strip_sd_pair(self.measurement[1]))
+        return self.utool.dict_add_unit({
+            'x': x, 'px': px,
+            'y': y, 'py': py,
+        })
 
     def compute_steerer_corrections(self, init_pos):
 
@@ -143,59 +147,33 @@ class OpticVariationMethod(object):
         return (strip_unit('x', sd_values[prefix + 'x']),
                 strip_unit('y', sd_values[prefix + 'y']))
 
-    def _compute_initial_position(self, A, a, B, b):
-        """
-        Compute initial beam position from two monitor read-outs at different
-        quadrupole settings.
 
-        A, B are the 4D SECTORMAPs from start to the monitor.
-        a, b are the 2D measurement vectors (x, y)
+def _compute_initial_position(A, a, B, b):
+    """
+    Compute initial beam position from two monitor read-outs at different
+    quadrupole settings.
 
-        This function solves the linear system:
+    A, B are the 7D SECTORMAPs from start to the monitor.
+    a, b are the 2D measurement vectors (x, y)
 
-                Ax = a
-                Bx = b
+    This function solves the linear system:
 
-        for the 4D phase space vector x and returns the result as a dict with
-        keys 'x', 'px', 'y, 'py'.
-        """
+            Ax = a
+            Bx = b
 
-        s1 = ((0,1,2,3,6), slice(None))
-        s2 = (slice(None), (0,1,2,3,6))
-        A = A[s1][s2]
-        B = B[s1][s2]
-
-        AR = numpy.array([
-            [0, 0, 0, 0, 0],
-            [-1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, -1, 0, 0, 0],
-            [0, 0, 0, 0, 1],
-        ])
-
-        BL = numpy.array([
-            [0, 0, 0, 0, 0],
-            [0, 0, -1, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, -1, 0],
-            [0, 0, 0, 0, 1],
-        ])
-
-        M = numpy.bmat([[A, AR],
-                        [BL, B]])
-
-        a = self._strip_sd_pair(a)
-        b = self._strip_sd_pair(b)
-
-        m = numpy.array([a[0], 0, a[1], 0, 1, b[0], 0, b[1], 0, 1])
-
-        x = numpy.linalg.lstsq(M, m)[0]
-        return self.utool.dict_add_unit({'x': x[0], 'px': x[1],
-                                         'y': x[2], 'py': x[3]})
+    for the 4D phase space vector x = (x, px, y, py).
+    """
+    rows = (0,2)
+    cols = (0,1,2,3,6)
+    M1 = A[rows,:][:,cols]
+    M2 = B[rows,:][:,cols]
+    M3 = np.eye(1, 5, 4)
+    M = np.vstack((M1, M2, M3))
+    m = np.hstack((a, b, 1))
+    return np.linalg.lstsq(M, m)[0][:4]
 
 
 class OpticVariationWizard(wizard.Wizard):
-
 
     def __init__(self, parent, ovm):
         super(OpticVariationWizard, self).__init__(parent)
