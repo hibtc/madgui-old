@@ -118,7 +118,7 @@ class CompareTool(object):
         self._lines[name] = axes.plot(
             unit.strip_unit(envdata[sname], view.unit[sname]),
             unit.strip_unit(envdata[name], view.unit[name]),
-            'k')
+            'k-x')
 
     def _remove_ax(self, name):
         """Remove the envelope from the figure."""
