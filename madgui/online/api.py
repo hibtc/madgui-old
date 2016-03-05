@@ -91,6 +91,13 @@ class OnlinePlugin(_Interface):
         tuple for a solenoid.
         """
 
+    @abstractmethod
+    def get_kicker(self, segment, elements, skew):
+        """
+        Get a (:class:`ElementBackendConverter`, :class:`ElementBackend`)
+        tuple for a kicker.
+        """
+
 
 class ElementBackend(_Interface):
 

@@ -181,11 +181,19 @@ class BaseDipole(BaseMagnet):
         return self._plugin.get_dipole(self._segment, self.elements, self.skew)
 
 
-class HKicker(BaseDipole):
+class BaseKicker(BaseMagnet):
+
+    parameter_info = {'angle': "Total deflection angle."}
+
+    def _dvm_backend(self):
+        return self._plugin.get_kicker(self._segment, self.elements, self.skew)
+
+
+class HKicker(BaseKicker):
     skew = False
     mad_cls = mad_backend.HKicker
 
-class VKicker(BaseDipole):
+class VKicker(BaseKicker):
     skew = True
     mad_cls = mad_backend.VKicker
 

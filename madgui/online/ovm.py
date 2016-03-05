@@ -90,7 +90,7 @@ class OpticVariationMethod(object):
             monitor.dvm_backend.get())
 
     def compute_initial_position(self):
-        x, px, y, py, one = _compute_initial_position(
+        x, px, y, py = _compute_initial_position(
             self.sectormap[0], self._strip_sd_pair(self.measurement[0]),
             self.sectormap[1], self._strip_sd_pair(self.measurement[1]))
         return self.utool.dict_add_unit({
