@@ -310,7 +310,11 @@ class OVM_Step(Widget):
             vsizer = wx.BoxSizer(wx.VERTICAL)
             bsizer = wx.FlexGridSizer(cols=4)
 
-            ctrl_title = wx.StaticText(window, label=title)
+            if isinstance(title, basestring):
+                ctrl_title = wx.StaticText(window, label=title)
+            else:
+                ctrl_title = title
+
             ctrl_label1 = wx.StaticText(window, label=label1)
             ctrl_label2 = wx.StaticText(window, label=label2)
             ctrl_input1 = wx.TextCtrl(window, style=style)
@@ -353,8 +357,22 @@ class OVM_Step(Widget):
                     (ctrl_input1, ctrl_input2),
                     (ctrl_unit1, ctrl_unit2))
 
+        num_focus_levels = 6
+        choices = ["Manual"]
+        choices += ["Focus {}".format(i+1) for i in range(num_focus_levels)]
+
+        self.method_label = wx.StaticText(window, label="Enter QP settings:")
+        self.method_choice = wx.Choice(window, choices=choices)
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+        hsizer.Add(self.method_label)
+        hsizer.Add(self.method_choice)
+
         _, self.label_edit_qp, self.edit_qp, self.edit_qp_unit = \
-            box("Enter QP settings:", "QP 1:", "QP 2:", wx.TE_RIGHT)
+            box(hsizer, "QP 1:", "QP 2:", wx.TE_RIGHT)
+
+        self.method_choice.Bind(wx.EVT_CHOICE, self.OnChangeInputMethod)
+        self.edit_qp[0].Bind(wx.EVT_UPDATE_UI, self.OnUpdateQPSelect)
+        self.method_choice.SetSelection(0)
 
         sizer.AddSpacer(5)
         sep_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -385,6 +403,30 @@ class OVM_Step(Widget):
         window.Bind(wx.EVT_TIMER, self.UpdateStatus, self.timer)
 
         return outer
+
+    def OnChangeInputMethod(self, event):
+        focus = event.GetInt()
+        if focus == 0:
+            return
+        dvm = self.ovm.control._plugin._dvm
+        values, channels = dvm.GetMEFIValue()
+        vacc = dvm.GetSelectedVAcc()
+        if focus != channels.focus:
+            dvm.SelectMEFI(vacc, *channels._replace(focus=focus))
+        self._InitManualQP(0)
+        self._InitManualQP(1)
+        if focus != channels.focus:
+            dvm.SelectMEFI(vacc, *channels)
+
+    def OnUpdateQPSelect(self, event):
+        cur_style = self.edit_qp[0].GetWindowStyle()
+        if self.method_choice.GetSelection() > 0:
+            new_style = cur_style | wx.TE_READONLY
+        else:
+            new_style = cur_style & ~wx.TE_READONLY
+        if cur_style != new_style:
+            self.edit_qp[0].SetWindowStyle(new_style)
+            self.edit_qp[1].SetWindowStyle(new_style)
 
     def GetData(self):
         pass
