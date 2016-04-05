@@ -205,6 +205,8 @@ class OpticVariationWizard(wizard.Wizard):
             el.mad_backend.set(vals)
             el.dvm_backend.set(el.mad2dvm(vals))
         self.ovm.control._plugin.execute()
+        self.ovm.segment.twiss()
+        self.EndModal(wx.ID_OK)
 
 
 class OpticSelectWidget(Widget):
