@@ -369,8 +369,9 @@ class OVM_Step(Widget):
         self.method_label = wx.StaticText(window, label="Enter QP settings:")
         self.method_choice = wx.Choice(window, choices=choices)
         hsizer = wx.BoxSizer(wx.HORIZONTAL)
-        hsizer.Add(self.method_label)
-        hsizer.Add(self.method_choice)
+        hsizer.Add(self.method_label, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        hsizer.AddSpacer(10)
+        hsizer.Add(self.method_choice, 5, flag=wx.ALL|wx.ALIGN_CENTER)
 
         _, self.label_edit_qp, self.edit_qp, self.edit_qp_unit = \
             box(hsizer, "QP 1:", "QP 2:", wx.TE_RIGHT)
