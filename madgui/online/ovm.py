@@ -178,14 +178,17 @@ class OpticVariationWizard(wizard.Wizard):
         super(OpticVariationWizard, self).__init__(parent)
         self.ovm = ovm
         # TODO: also include the OVM element selection page
-        self._add_step_page("1st optic")
-        self._add_step_page("2nd optic")
+        self._step_widgets = [
+            self._add_step_page("1st optic"),
+            self._add_step_page("2nd optic"),
+        ]
         self._add_confirm_page()
 
     def _add_step_page(self, title):
         page = self.AddPage(title)
         widget = OVM_Step(page.canvas)
         widget.SetData(self.ovm)
+        return widget
 
     def _add_confirm_page(self):
         page = self.AddPage("Confirm steerer corrections")
@@ -196,6 +199,8 @@ class OpticVariationWizard(wizard.Wizard):
     def NextPage(self):
         if self.cur_page in (0, 1):
             self.ovm.record_measurement(self.cur_page)
+        if self.cur_page == 1:
+            self._step_widgets[0].OnApply(None)
         super(OpticVariationWizard, self).NextPage()
         if self.cur_page == 2:
             self.summary.Update()
