@@ -98,9 +98,11 @@ class OpticVariationMethod(object):
             'y': y, 'py': py,
         })
 
-    def compute_steerer_corrections(self, init_pos):
+    def compute_steerer_corrections(self, init_pos, xpos=0, ypos=0):
 
-        steerer_names = self.hst + self.vst
+        steerer_names = []
+        if xpos is not None: steerer_names.extend(self.hst)
+        if ypos is not None: steerer_names.extend(self.vst)
         steerer_elems = [self.control.get_element(v) for v in steerer_names]
 
         # backup  MAD-X values
@@ -115,13 +117,18 @@ class OpticVariationMethod(object):
         self.segment._twiss_args = init_twiss
 
         # match final conditions
-        constraints = [
-            {'range': self.mon, 'x': 0},
-            {'range': self.mon, 'px': 0},
-            {'range': self.mon, 'y': 0},
-            {'range': self.mon, 'py': 0},
-            # TODO: also set betx, bety unchanged?
-        ]
+        constraints = []
+        if xpos is not None:
+            constraints.extend([
+                {'range': self.mon, 'x': xpos},
+                {'range': self.mon, 'px': 0},
+            ])
+        if ypos is not None:
+            constraints.extend([
+                {'range': self.mon, 'y': ypos},
+                {'range': self.mon, 'py': 0},
+            ])
+        # TODO: also set betx, bety unchanged?
         self.segment.madx.match(
             sequence=self.segment.sequence.name,
             vary=match_names,
@@ -514,6 +521,30 @@ class OVM_Summary(Widget):
             vsizer.Add(lctrl, 1, flag=wx.ALL|wx.EXPAND, border=5)
             sizer.Add(vsizer, 1, flag=wx.ALL|wx.EXPAND, border=5)
             return lctrl
+
+        self.xcheck = wx.CheckBox(window, label="X target value [m]:")
+        self.ycheck = wx.CheckBox(window, label="Y target value [m]:")
+        self.xcheck.SetValue(True)
+        self.ycheck.SetValue(True)
+        self.xtarget = wx.TextCtrl(window, value="0")
+        self.ytarget = wx.TextCtrl(window, value="0")
+        self.xtarget.Bind(wx.EVT_UPDATE_UI, self.OnUpdateTarget)
+        button_update = wx.Button(window, label="Update")
+        button_update.Bind(wx.EVT_BUTTON, self.OnUpdate)
+        button_update.Bind(wx.EVT_UPDATE_UI, self.OnUpdateButton)
+
+        bsizer = wx.FlexGridSizer(3, 3)
+        bsizer.AddGrowableCol(1)
+        bsizer.Add(self.xcheck, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        bsizer.AddSpacer(5)
+        bsizer.Add(self.xtarget, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        bsizer.Add(self.ycheck, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        bsizer.AddSpacer(5)
+        bsizer.Add(self.ytarget, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        bsizer.Add(button_update, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        sizer.Add(bsizer)
+        sizer.AddSpacer(10)
+
         self.twiss_init = box("Initial position:", self.GetTwissCols())
         self.steerer_corr = box("Steerer corrections:", self.GetSteererCols())
         # TODO: add a restart button
@@ -525,9 +556,21 @@ class OVM_Summary(Widget):
     def SetData(self, ovm):
         self.ovm = ovm
 
+    def OnUpdate(self, event):
+        self.Update()
+
+    def OnUpdateButton(self, event):
+        event.Enable(self.xcheck.GetValue() or self.ycheck.GetValue())
+
+    def OnUpdateTarget(self, event):
+        self.xtarget.Enable(self.xcheck.GetValue())
+        self.ytarget.Enable(self.ycheck.GetValue())
+
     def Update(self):
         pos = self.ovm.compute_initial_position()
-        self.steerer_corrections = self.ovm.compute_steerer_corrections(pos)
+        xpos = float(self.xtarget.GetValue()) if self.xcheck.GetValue() else None
+        ypos = float(self.ytarget.GetValue()) if self.ycheck.GetValue() else None
+        self.steerer_corrections = self.ovm.compute_steerer_corrections(pos, xpos, ypos)
         steerer_corrections_rows = [
             (el.dvm_params[k], v)
             for el, vals in self.steerer_corrections
