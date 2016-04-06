@@ -615,4 +615,4 @@ class OVM_Summary(Widget):
 
     def _format_dvm_value(self, item):
         param, val = item
-        return format_dvm_value(param, val)
+        return format_dvm_value(param, val, 7)

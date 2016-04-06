@@ -55,9 +55,9 @@ class ListSelectWidget(Widget):
         return list(self._grid.selected_items)
 
 
-def format_dvm_value(param, value):
+def format_dvm_value(param, value, prec=None):
     value = tounit(value, param.ui_unit)
-    fmt_code = '.{}f'.format(param.ui_prec)
+    fmt_code = '.{}f'.format(param.ui_prec if prec is None else prec)
     return format_quantity(value, fmt_code)
 
 
@@ -92,11 +92,11 @@ class SyncParamWidget(ListSelectWidget):
 
     def _format_dvm_value(self, item):
         param, dvm_value, mad_value = item
-        return format_dvm_value(param, dvm_value)
+        return format_dvm_value(param, dvm_value, 7)
 
     def _format_madx_value(self, item):
         param, dvm_value, mad_value = item
-        return format_dvm_value(param, mad_value)
+        return format_dvm_value(param, mad_value, 7)
 
 
 class ImportParamWidget(SyncParamWidget):
