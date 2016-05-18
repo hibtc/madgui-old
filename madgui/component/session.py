@@ -8,6 +8,7 @@ from __future__ import absolute_import
 
 # standard library
 from collections import namedtuple
+from functools import reduce
 import os
 import subprocess
 
@@ -28,6 +29,10 @@ __all__ = [
     'Session',
     'Segment',
 ]
+
+
+def kronecker(i, j):
+    return 1 if i == j else 0
 
 
 class Session(object):
@@ -435,7 +440,7 @@ class Segment(object):
         self.tw['posy'] = self.tw['y']
         self.hook.update()
 
-    def raw_twiss(self, **kwargs):
+    def _get_twiss_args(self, **kwargs):
         twiss_init = self.utool.dict_strip_unit(self.twiss_args)
         twiss_args = {
             'sequence': self.sequence.name,
@@ -444,7 +449,10 @@ class Segment(object):
             'twiss_init': twiss_init,
         }
         twiss_args.update(kwargs)
-        return self.madx.twiss(**twiss_args)
+        return twiss_args
+
+    def raw_twiss(self, **kwargs):
+        return self.madx.twiss(**self._get_twiss_args(**kwargs))
 
     def get_transfer_map(self, beg_elem, end_elem):
         """
@@ -453,15 +461,7 @@ class Segment(object):
         This requires a full twiss call, so don't do it too often.
         """
         info = self.get_element_info
-        madx = self.madx
-        madx.command.select(flag='sectormap', clear=True)
-        madx.command.select(flag='sectormap', range=info(beg_elem).name)
-        madx.command.select(flag='sectormap', range=info(end_elem).name)
-        with temp_filename() as sectorfile:
-            self.raw_twiss(sectormap=True, sectorfile=sectorfile)
-        sectortable = madx.get_table('sectortable')
-        def sectormap(i, j):
-            return sectortable['r{}{}'.format(i, j)][-1]
-        return np.array([[sectormap(i+1, j+1)
-                          for j in range(6)]
-                         for i in range(6)])
+        twiss_args = self._get_twiss_args()
+        twiss_args['range_'] = (info(beg_elem).name, info(end_elem).name)
+        twiss_args['tw_range'] = twiss_args.pop('range')
+        return self.madx.get_transfer_map_7d(**twiss_args)

@@ -6,7 +6,7 @@ alignment.
 
 from __future__ import absolute_import
 
-import numpy
+import numpy as np
 
 from madgui.core import wx
 from madgui.util.unit import format_quantity, strip_unit, get_raw_label
@@ -29,6 +29,7 @@ __all__ = [
 
 def _is_steerer(el):
     return el['type'] == 'sbend' \
+        or el['type'].endswith('kicker') \
         or el['type'] == 'multipole' and (
             el['knl'][0] != 0 or
             el['ksl'][0] != 0)
@@ -89,17 +90,25 @@ class OpticVariationMethod(object):
             monitor.dvm_backend.get())
 
     def compute_initial_position(self):
-        return self._compute_initial_position(
-            self.sectormap[0], self.measurement[0],
-            self.sectormap[1], self.measurement[1])
+        x, px, y, py = _compute_initial_position(
+            self.sectormap[0], self._strip_sd_pair(self.measurement[0]),
+            self.sectormap[1], self._strip_sd_pair(self.measurement[1]))
+        return self.utool.dict_add_unit({
+            'x': x, 'px': px,
+            'y': y, 'py': py,
+        })
 
-    def compute_steerer_corrections(self, init_pos):
+    def compute_steerer_corrections(self, init_pos, xpos=0, ypos=0):
 
-        steerer_names = self.hst + self.vst
+        steerer_names = []
+        if xpos is not None: steerer_names.extend(self.hst)
+        if ypos is not None: steerer_names.extend(self.vst)
         steerer_elems = [self.control.get_element(v) for v in steerer_names]
 
         # backup  MAD-X values
         steerer_values = [el.mad_backend.get() for el in steerer_elems]
+
+        match_names = [list(el.mad_backend._lval.values())[0] for el in steerer_elems]
 
         # compute initial condition
         init_twiss = {}
@@ -108,16 +117,21 @@ class OpticVariationMethod(object):
         self.segment._twiss_args = init_twiss
 
         # match final conditions
-        constraints = [
-            {'range': self.mon, 'x': 0},
-            {'range': self.mon, 'px': 0},
-            {'range': self.mon, 'y': 0},
-            {'range': self.mon, 'py': 0},
-            # TODO: also set betx, bety unchanged?
-        ]
+        constraints = []
+        if xpos is not None:
+            constraints.extend([
+                {'range': self.mon, 'x': xpos},
+                {'range': self.mon, 'px': 0},
+            ])
+        if ypos is not None:
+            constraints.extend([
+                {'range': self.mon, 'y': ypos},
+                {'range': self.mon, 'py': 0},
+            ])
+        # TODO: also set betx, bety unchanged?
         self.segment.madx.match(
             sequence=self.segment.sequence.name,
-            vary=steerer_names,
+            vary=match_names,
             constraints=constraints,
             twiss_init=self.utool.dict_strip_unit(init_twiss))
         self.segment.hook.update()
@@ -139,51 +153,49 @@ class OpticVariationMethod(object):
         return (strip_unit('x', sd_values[prefix + 'x']),
                 strip_unit('y', sd_values[prefix + 'y']))
 
-    def _compute_initial_position(self, A, a, B, b):
-        """
-        Compute initial beam position from two monitor read-outs at different
-        quadrupole settings.
 
-        A, B are the 4D SECTORMAPs from start to the monitor.
-        a, b are the 2D measurement vectors (x, y)
+def _compute_initial_position(A, a, B, b):
+    """
+    Compute initial beam position from two monitor read-outs at different
+    quadrupole settings.
 
-        This function solves the linear system:
+    A, B are the 7D SECTORMAPs from start to the monitor.
+    a, b are the 2D measurement vectors (x, y)
 
-                Ax = a
-                Bx = b
+    This function solves the linear system:
 
-        for the 4D phase space vector x and returns the result as a dict with
-        keys 'x', 'px', 'y, 'py'.
-        """
-        zero = numpy.zeros((2,4))
-        eye = numpy.eye(4)
-        s = ((0,2), slice(0,4))
-        M = numpy.bmat([[A[s], zero],
-                        [zero, B[s]],
-                        [eye,  -eye]])
-        m = (self._strip_sd_pair(a) +
-             self._strip_sd_pair(b) +
-             (0, 0, 0, 0))
-        x = numpy.linalg.lstsq(M, m)[0]
-        return self.utool.dict_add_unit({'x': x[0], 'px': x[1],
-                                         'y': x[2], 'py': x[3]})
+            Ax = a
+            Bx = b
+
+    for the 4D phase space vector x = (x, px, y, py).
+    """
+    rows = (0,2)
+    cols = (0,1,2,3,6)
+    M1 = A[rows,:][:,cols]
+    M2 = B[rows,:][:,cols]
+    M3 = np.eye(1, 5, 4)
+    M = np.vstack((M1, M2, M3))
+    m = np.hstack((a, b, 1))
+    return np.linalg.lstsq(M, m)[0][:4]
 
 
 class OpticVariationWizard(wizard.Wizard):
-
 
     def __init__(self, parent, ovm):
         super(OpticVariationWizard, self).__init__(parent)
         self.ovm = ovm
         # TODO: also include the OVM element selection page
-        self._add_step_page("1st optic")
-        self._add_step_page("2nd optic")
+        self._step_widgets = [
+            self._add_step_page("1st optic"),
+            self._add_step_page("2nd optic"),
+        ]
         self._add_confirm_page()
 
     def _add_step_page(self, title):
         page = self.AddPage(title)
         widget = OVM_Step(page.canvas)
         widget.SetData(self.ovm)
+        return widget
 
     def _add_confirm_page(self):
         page = self.AddPage("Confirm steerer corrections")
@@ -194,6 +206,8 @@ class OpticVariationWizard(wizard.Wizard):
     def NextPage(self):
         if self.cur_page in (0, 1):
             self.ovm.record_measurement(self.cur_page)
+        if self.cur_page == 1:
+            self._step_widgets[0].OnApply(None)
         super(OpticVariationWizard, self).NextPage()
         if self.cur_page == 2:
             self.summary.Update()
@@ -203,6 +217,8 @@ class OpticVariationWizard(wizard.Wizard):
             el.mad_backend.set(vals)
             el.dvm_backend.set(el.mad2dvm(vals))
         self.ovm.control._plugin.execute()
+        self.ovm.segment.twiss()
+        self.EndModal(wx.ID_OK)
 
 
 class OpticSelectWidget(Widget):
@@ -306,7 +322,11 @@ class OVM_Step(Widget):
             vsizer = wx.BoxSizer(wx.VERTICAL)
             bsizer = wx.FlexGridSizer(cols=4)
 
-            ctrl_title = wx.StaticText(window, label=title)
+            if isinstance(title, basestring):
+                ctrl_title = wx.StaticText(window, label=title)
+            else:
+                ctrl_title = title
+
             ctrl_label1 = wx.StaticText(window, label=label1)
             ctrl_label2 = wx.StaticText(window, label=label2)
             ctrl_input1 = wx.TextCtrl(window, style=style)
@@ -349,8 +369,23 @@ class OVM_Step(Widget):
                     (ctrl_input1, ctrl_input2),
                     (ctrl_unit1, ctrl_unit2))
 
+        num_focus_levels = 6
+        choices = ["Manual"]
+        choices += ["Focus {}".format(i+1) for i in range(num_focus_levels)]
+
+        self.method_label = wx.StaticText(window, label="Enter QP settings:")
+        self.method_choice = wx.Choice(window, choices=choices)
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+        hsizer.Add(self.method_label, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        hsizer.AddSpacer(10)
+        hsizer.Add(self.method_choice, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+
         _, self.label_edit_qp, self.edit_qp, self.edit_qp_unit = \
-            box("Enter QP settings:", "QP 1:", "QP 2:", wx.TE_RIGHT)
+            box(hsizer, "QP 1:", "QP 2:", wx.TE_RIGHT)
+
+        self.method_choice.Bind(wx.EVT_CHOICE, self.OnChangeInputMethod)
+        self.edit_qp[0].Bind(wx.EVT_UPDATE_UI, self.OnUpdateQPSelect)
+        self.method_choice.SetSelection(0)
 
         sizer.AddSpacer(5)
         sep_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -381,6 +416,30 @@ class OVM_Step(Widget):
         window.Bind(wx.EVT_TIMER, self.UpdateStatus, self.timer)
 
         return outer
+
+    def OnChangeInputMethod(self, event):
+        focus = event.GetInt()
+        if focus == 0:
+            return
+        dvm = self.ovm.control._plugin._dvm
+        values, channels = dvm.GetMEFIValue()
+        vacc = dvm.GetSelectedVAcc()
+        if focus != channels.focus:
+            dvm.SelectMEFI(vacc, *channels._replace(focus=focus))
+        self._InitManualQP(0)
+        self._InitManualQP(1)
+        if focus != channels.focus:
+            dvm.SelectMEFI(vacc, *channels)
+
+    def OnUpdateQPSelect(self, event):
+        cur_style = self.edit_qp[0].GetWindowStyle()
+        if self.method_choice.GetSelection() > 0:
+            new_style = cur_style | wx.TE_READONLY
+        else:
+            new_style = cur_style & ~wx.TE_READONLY
+        if cur_style != new_style:
+            self.edit_qp[0].SetWindowStyle(new_style)
+            self.edit_qp[1].SetWindowStyle(new_style)
 
     def GetData(self):
         pass
@@ -462,6 +521,30 @@ class OVM_Summary(Widget):
             vsizer.Add(lctrl, 1, flag=wx.ALL|wx.EXPAND, border=5)
             sizer.Add(vsizer, 1, flag=wx.ALL|wx.EXPAND, border=5)
             return lctrl
+
+        self.xcheck = wx.CheckBox(window, label="X target value [m]:")
+        self.ycheck = wx.CheckBox(window, label="Y target value [m]:")
+        self.xcheck.SetValue(True)
+        self.ycheck.SetValue(True)
+        self.xtarget = wx.TextCtrl(window, value="0")
+        self.ytarget = wx.TextCtrl(window, value="0")
+        self.xtarget.Bind(wx.EVT_UPDATE_UI, self.OnUpdateTarget)
+        button_update = wx.Button(window, label="Update")
+        button_update.Bind(wx.EVT_BUTTON, self.OnUpdate)
+        button_update.Bind(wx.EVT_UPDATE_UI, self.OnUpdateButton)
+
+        bsizer = wx.FlexGridSizer(3, 3)
+        bsizer.AddGrowableCol(1)
+        bsizer.Add(self.xcheck, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        bsizer.AddSpacer(5)
+        bsizer.Add(self.xtarget, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        bsizer.Add(self.ycheck, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        bsizer.AddSpacer(5)
+        bsizer.Add(self.ytarget, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        bsizer.Add(button_update, 5, flag=wx.ALL|wx.ALIGN_CENTER)
+        sizer.Add(bsizer)
+        sizer.AddSpacer(10)
+
         self.twiss_init = box("Initial position:", self.GetTwissCols())
         self.steerer_corr = box("Steerer corrections:", self.GetSteererCols())
         # TODO: add a restart button
@@ -473,9 +556,21 @@ class OVM_Summary(Widget):
     def SetData(self, ovm):
         self.ovm = ovm
 
+    def OnUpdate(self, event):
+        self.Update()
+
+    def OnUpdateButton(self, event):
+        event.Enable(self.xcheck.GetValue() or self.ycheck.GetValue())
+
+    def OnUpdateTarget(self, event):
+        self.xtarget.Enable(self.xcheck.GetValue())
+        self.ytarget.Enable(self.ycheck.GetValue())
+
     def Update(self):
         pos = self.ovm.compute_initial_position()
-        self.steerer_corrections = self.ovm.compute_steerer_corrections(pos)
+        xpos = float(self.xtarget.GetValue()) if self.xcheck.GetValue() else None
+        ypos = float(self.ytarget.GetValue()) if self.ycheck.GetValue() else None
+        self.steerer_corrections = self.ovm.compute_steerer_corrections(pos, xpos, ypos)
         steerer_corrections_rows = [
             (el.dvm_params[k], v)
             for el, vals in self.steerer_corrections
@@ -520,4 +615,4 @@ class OVM_Summary(Widget):
 
     def _format_dvm_value(self, item):
         param, val = item
-        return format_dvm_value(param, val)
+        return format_dvm_value(param, val, 7)

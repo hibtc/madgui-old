@@ -59,7 +59,7 @@ def main():
         ],
         test_suite='nose.collector',
         install_requires=[
-            'cpymad>=0.12.1',
+            'cpymad>=0.14.0',
             'docopt',
             'matplotlib',
             'numpy',

@@ -65,12 +65,12 @@ class Control(object):
                  self.disconnect,
                  self.is_connected),
             Separator,
-            Item('&Read strengthes',
-                 'Read magnet strengthes from the online database',
+            Item('&Read strengths',
+                 'Read magnet strengths from the online database',
                  self.read_all,
                  self.has_sequence),
-            Item('&Write strengthes',
-                 'Write magnet strengthes to the online database',
+            Item('&Write strengths',
+                 'Write magnet strengths to the online database',
                  self.write_all,
                  self.has_sequence),
             Separator,
@@ -185,7 +185,7 @@ class Control(object):
         segment = self._segment
         # TODO: sync elements attributes
         elems = segment.sequence.elements
-        varyconf = segment.data.get('align', {})
+        varyconf = segment.session.data.get('align', {})
         with Dialog(self._frame) as dialog:
             elems = ovm.OpticSelectWidget(dialog).Query(elems, varyconf)
         data = ovm.OpticVariationMethod(self, *elems)
