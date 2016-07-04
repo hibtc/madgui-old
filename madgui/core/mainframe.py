@@ -140,6 +140,12 @@ class MainFrame(MDIParentFrame):
         self._NewLogTab()
         self.session = session
         self.env['session'] = session
+        self.env['madx'] = session.madx
+        self.env['libmadx'] = session.libmadx
+        self.env.pop('segment', None)
+        self.env.pop('sequence', None)
+        self.env.pop('elements', None)
+        self.env.pop('twiss', None)
         threading.Thread(target=self._read_stream,
                          args=(session.remote_process.stdout,)).start()
         self.hook.reset()
@@ -163,6 +169,11 @@ class MainFrame(MDIParentFrame):
             widget = ModelWidget(dialog, session)
             data = widget.Query(session.data)
         session.init_segment(data)
+        segment = session.segment
+        self.env['segment'] = segment
+        self.env['sequence'] = segment.sequence
+        self.env['elements'] = segment.elements
+        self.env['twiss'] = segment.sequence.twiss_table
         TwissView.create(session, self, basename='env')
 
     @Cancellable
