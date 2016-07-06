@@ -146,7 +146,9 @@ class SequenceRangeWidget(Widget):
     def _UpdateRange(self, event=None):
         """Update list of elements in range selection control."""
         seq_name = self.sequence_picker.GetData()
-        elements = self.madx.sequences[seq_name].elements
+        sequence = self.madx.sequences[seq_name]
+        sequence.expand()
+        elements = sequence.expanded_elements
         elements_with_units = map(self.utool.dict_add_unit, elements)
         if self.sequence == seq_name and self.range:
             beg, end = self.range

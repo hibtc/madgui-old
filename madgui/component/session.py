@@ -21,7 +21,7 @@ import yaml
 
 # internal
 from madgui.core.plugin import HookCollection
-from madgui.util.common import temp_filename
+from madgui.util.common import temp_filename, cachedproperty
 
 # exported symbols
 __all__ = [
@@ -67,6 +67,7 @@ class Session(object):
         # stdin=None leads to an error on windows when STDIN is broken.
         # therefore, we need set stdin=os.devnull by passing stdin=False:
         self.madx = madx = Madx(
+            command_log="commands.madx",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             stdin=False,
@@ -241,7 +242,7 @@ class Session(object):
             first, last = table.range
         except ValueError:
             raise RuntimeError("TWISS table inaccessible or nonsensical.")
-        if first not in sequence.elements or last not in sequence.elements:
+        if first not in sequence.expanded_elements or last not in sequence.expanded_elements:
             raise RuntimeError("The TWISS table appears to belong to a different sequence.")
         # TODO: this inefficiently copies over the whole table over the pipe
         # rather than just the first row.
@@ -301,19 +302,20 @@ class Segment(object):
         self.session = session
         self.sequence = session.madx.sequences[sequence]
 
-        self.start, self.stop = self.parse_range(range)
-        self.range = (normalize_range_name(self.start.name),
-                      normalize_range_name(self.stop.name))
-
         self._beam = beam
         self._twiss_args = twiss_args
         self._show_element_indicators = show_element_indicators
         self._use_beam(beam)
+        session.madx.use(sequence)
 
-        raw_elements = self.sequence.elements
+        raw_elements = self.sequence.expanded_elements
         # TODO: provide uncached version of elements with units:
         self.elements = list(map(
             session.utool.dict_add_unit, raw_elements))
+
+        self.start, self.stop = self.parse_range(range)
+        self.range = (normalize_range_name(self.start.name),
+                      normalize_range_name(self.stop.name))
 
         # TODO: self.hook.create(self)
 
@@ -341,11 +343,11 @@ class Segment(object):
         if isinstance(element, ElementInfo):
             return element
         if isinstance(element, (basestring, dict)):
-            element = self.sequence.elements.index(element)
+            element = self.sequence.expanded_elements.index(element)
         element_data = self.session.utool.dict_add_unit(
-            self.sequence.elements[element])
+            self.sequence.expanded_elements[element])
         if element < 0:
-            element += len(self.sequence.elements)
+            element += len(self.sequence.expanded_elements)
         return ElementInfo(element_data['name'], element, element_data['at'])
 
     def parse_range(self, range):
@@ -409,7 +411,7 @@ class Segment(object):
 
     def get_element_index(self, elem):
         """Get element index by it name."""
-        return self.sequence.elements.index(elem)
+        return self.sequence.expanded_elements.index(elem)
 
     def get_twiss(self, elem, name):
         """Return beam envelope at element."""

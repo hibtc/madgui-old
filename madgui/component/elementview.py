@@ -111,7 +111,7 @@ class ElementView(object):
 
     @property
     def element(self):
-        elements = self.segment.session.madx.active_sequence.elements
+        elements = self.segment.session.madx.active_sequence.expanded_elements
         raw_element = elements[self.element_name]
         return self.segment.session.utool.dict_add_unit(raw_element)
 

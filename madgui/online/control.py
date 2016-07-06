@@ -184,7 +184,7 @@ class Control(object):
     def on_find_initial_position(self):
         segment = self._segment
         # TODO: sync elements attributes
-        elems = segment.sequence.elements
+        elems = segment.sequence.expanded_elements
         varyconf = segment.session.data.get('align', {})
         with Dialog(self._frame) as dialog:
             elems = ovm.OpticSelectWidget(dialog).Query(elems, varyconf)
