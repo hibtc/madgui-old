@@ -151,9 +151,10 @@ class TwissView(object):
         self.sname = sname = 's'
         self.xname = xname = basename + 'x'
         self.yname = yname = basename + 'y'
-        self.axes = {xname: figure.axx,
-                     yname: figure.axy}
-        self._conjugate = {xname: yname, yname: xname}
+        axx, axy = figure.axx, figure.axy
+        axx.twiss_name, axx.twiss_conj = xname, yname
+        axy.twiss_name, axy.twiss_conj = yname, xname
+        self.axes = {xname: axx, yname: axy}
 
         # plot style
         self._label = line_view_config['label']
@@ -194,10 +195,10 @@ class TwissView(object):
         fig.draw()
 
     def get_axes_name(self, axes):
-        return next(k for k,v in self.axes.items() if v is axes)
+        return axes.twiss_name
 
     def get_conjugate(self, name):
-        return self._conjugate[name]
+        return axes.twiss_conj
 
 
 # TODO: Store the constraints with a Match object, rather than "globally"

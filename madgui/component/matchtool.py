@@ -84,8 +84,8 @@ class MatchTool(object):
         axes = event.inaxes
         if axes is None:
             return
-        name = self.view.get_axes_name(axes)
-        conj = self.view.get_conjugate(name)
+        name = axes.twiss_name
+        conj = axes.twiss_conj
 
         elem = self.segment.element_by_position(
             event.xdata * self.view.unit['s'])
