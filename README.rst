@@ -1,6 +1,12 @@
 MadGUI
 ======
 
+This package is **OBSOLETE** and is not developed any further. It will be
+replaced by MadQt_.
+
+.. _MadQt: https://github.com/hibtc/madqt
+
+
 Description
 ~~~~~~~~~~~
 
