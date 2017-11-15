@@ -90,7 +90,7 @@ class OpticVariationMethod(object):
             monitor.dvm_backend.get())
 
     def compute_initial_position(self):
-        x, px, y, py = _compute_initial_position(
+        (x, px, y, py), residuals = _compute_initial_position(
             self.sectormap[0], self._strip_sd_pair(self.measurement[0]),
             self.sectormap[1], self._strip_sd_pair(self.measurement[1]))
         return self.utool.dict_add_unit({
@@ -176,7 +176,8 @@ def _compute_initial_position(A, a, B, b):
     M3 = np.eye(1, 5, 4)
     M = np.vstack((M1, M2, M3))
     m = np.hstack((a, b, 1))
-    return np.linalg.lstsq(M, m)[0][:4]
+    x, residuals, rank, singular = np.linalg.lstsq(M, m)
+    return x[:4], residuals
 
 
 class OpticVariationWizard(wizard.Wizard):
